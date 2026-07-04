@@ -4,14 +4,17 @@ import type { Book } from '../lib/types'
 import { layoutBooks } from './layout'
 import { Book3D } from './Book3D'
 import { StoneRoom } from './StoneRoom'
+import { Pixie } from './Pixie'
 
 interface Props {
   books: Book[]
   selected: Book | null
   onSelect: (book: Book | null) => void
+  highlighted: ReadonlySet<number>
+  onPixieClick: () => void
 }
 
-export function Library({ books, selected, onSelect }: Props) {
+export function Library({ books, selected, onSelect, highlighted, onPixieClick }: Props) {
   const controls = useRef<CameraControls>(null)
   const shelf = useMemo(() => layoutBooks(books), [books])
 
@@ -60,6 +63,10 @@ export function Library({ books, selected, onSelect }: Props) {
         maxAzimuthAngle={Math.PI / 5}
       />
       <StoneRoom shelfWidth={shelf.width} shelfRows={shelf.rows} />
+      <Pixie
+        position={[-(shelf.width / 2 + 0.9), homeView.target[1] + 0.3, 0.7]}
+        onClick={onPixieClick}
+      />
       {books.map((book) => {
         const position = shelf.positions.get(book.id)
         if (!position) return null
@@ -70,6 +77,7 @@ export function Library({ books, selected, onSelect }: Props) {
             position={position}
             onSelect={onSelect}
             dimmed={selected !== null}
+            highlighted={highlighted.has(book.id)}
           />
         )
       })}

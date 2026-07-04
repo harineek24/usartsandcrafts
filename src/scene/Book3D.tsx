@@ -10,23 +10,31 @@ interface Props {
   position: [number, number, number]
   onSelect: (book: Book) => void
   dimmed: boolean
+  highlighted?: boolean
 }
 
-export function Book3D({ book, position, onSelect, dimmed }: Props) {
+export function Book3D({ book, position, onSelect, dimmed, highlighted = false }: Props) {
   const slider = useRef<THREE.Group>(null)
+  const material = useRef<THREE.MeshStandardMaterial>(null)
   const [hovered, setHovered] = useState(false)
   const labelTexture = useMemo(() => makeLabelTexture(book.label), [book.label])
 
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
     if (!slider.current) return
-    // hovered books slide toward the viewer like being pulled off the shelf
-    const target = hovered && !dimmed ? 0.22 : 0
+    // hovered/highlighted books slide toward the viewer like being pulled off the shelf
+    const target = (hovered && !dimmed) || highlighted ? 0.22 : 0
     slider.current.position.z = THREE.MathUtils.damp(
       slider.current.position.z,
       target,
       8,
       delta,
     )
+    if (material.current) {
+      // pixie glow: warm gold pulse on search matches
+      material.current.emissiveIntensity = highlighted
+        ? 0.55 + Math.sin(clock.elapsedTime * 4) * 0.25
+        : 0.35
+    }
   })
 
   return (
@@ -52,9 +60,12 @@ export function Book3D({ book, position, onSelect, dimmed }: Props) {
         <mesh castShadow receiveShadow>
           <boxGeometry args={[BOOK.width, BOOK.height, BOOK.depth]} />
           <meshStandardMaterial
+            ref={material}
             color={book.book_color}
             roughness={0.72}
-            emissive={hovered && !dimmed ? book.book_color : '#000000'}
+            emissive={
+              highlighted ? '#c9a227' : hovered && !dimmed ? book.book_color : '#000000'
+            }
             emissiveIntensity={0.35}
           />
         </mesh>
