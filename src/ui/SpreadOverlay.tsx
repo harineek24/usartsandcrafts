@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Artwork, Book } from '../lib/types'
 import { artworkImageUrl, fetchArtworks } from '../lib/artworks'
 
@@ -13,6 +13,8 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
   const [artworks, setArtworks] = useState<Artwork[] | null>(null)
   const [page, setPage] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
+  const [turning, setTurning] = useState<'next' | 'prev' | null>(null)
+  const turnTimers = useRef<number[]>([])
 
   useEffect(() => {
     // hold the overlay back until the camera dolly-in mostly lands
@@ -36,6 +38,24 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
   const count = artworks?.length ?? 0
   const current = artworks?.[page]
 
+  const turnPage = useCallback(
+    (dir: 'next' | 'prev') => {
+      setPage((p) => {
+        const next = dir === 'next' ? Math.min(p + 1, count - 1) : Math.max(p - 1, 0)
+        if (next === p) return p
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return next
+        setTurning(dir)
+        // content swaps mid-swing, hidden behind the turning sheet
+        turnTimers.current.push(window.setTimeout(() => setPage(next), 240))
+        turnTimers.current.push(window.setTimeout(() => setTurning(null), 520))
+        return p
+      })
+    },
+    [count],
+  )
+
+  useEffect(() => () => turnTimers.current.forEach(clearTimeout), [])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -43,12 +63,12 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
         if (fullscreen) setFullscreen(false)
         else onClose()
       }
-      if (e.key === 'ArrowRight') setPage((p) => Math.min(p + 1, count - 1))
-      if (e.key === 'ArrowLeft') setPage((p) => Math.max(p - 1, 0))
+      if (e.key === 'ArrowRight') turnPage('next')
+      if (e.key === 'ArrowLeft') turnPage('prev')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, fullscreen, count])
+  }, [onClose, fullscreen, turnPage])
 
   return (
     <div
@@ -58,11 +78,11 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="relative flex aspect-[3/2] w-full max-w-5xl overflow-hidden rounded-lg shadow-[0_25px_80px_rgba(0,0,0,0.8)]"
+        className="relative flex h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg shadow-[0_25px_80px_rgba(0,0,0,0.8)] sm:aspect-[3/2] sm:h-auto sm:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         {/* left page: artwork */}
-        <section className="flex w-1/2 flex-col items-center justify-center gap-3 bg-[#f1e6cd] p-6">
+        <section className="flex flex-1 flex-col items-center justify-center gap-3 bg-[#f1e6cd] p-4 sm:w-1/2 sm:flex-none sm:p-6">
           {current ? (
             <>
               <img
@@ -89,11 +109,28 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
           )}
         </section>
 
-        {/* center gutter shadow */}
-        <div className="pointer-events-none absolute inset-y-0 left-1/2 w-10 -translate-x-1/2 bg-gradient-to-r from-transparent via-black/25 to-transparent" />
+        {/* center gutter shadow: vertical on desktop, horizontal when stacked */}
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-10 -translate-x-1/2 bg-gradient-to-r from-transparent via-black/25 to-transparent sm:block" />
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 h-6 -translate-y-1/2 bg-gradient-to-b from-transparent via-black/20 to-transparent sm:hidden" />
+
+        {/* turning sheet, swings around the gutter (desktop spread only) */}
+        {turning && (
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-y-0 z-20 hidden w-1/2 sm:block ${
+              turning === 'next'
+                ? 'right-0 origin-left animate-page-next'
+                : 'left-0 origin-right animate-page-prev'
+            }`}
+            style={{
+              background: 'linear-gradient(to right, #e9dcc0, #f5ebd6)',
+              boxShadow: '0 0 30px rgba(0,0,0,0.35)',
+            }}
+          />
+        )}
 
         {/* right page: materials & notes */}
-        <section className="flex w-1/2 flex-col gap-5 bg-[#f5ebd6] p-8 pr-12">
+        <section className="flex flex-1 flex-col gap-3 overflow-y-auto bg-[#f5ebd6] p-5 sm:w-1/2 sm:flex-none sm:gap-5 sm:p-8 sm:pr-12">
           <h2 className="font-serif text-xl text-[#3d2f1f]">Materials</h2>
           {current && current.materials.length > 0 ? (
             <ul className="list-disc space-y-1 pl-5 text-[15px] text-[#4a3a26]">
@@ -116,7 +153,7 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
         {count > 1 && (
           <>
             <button
-              onClick={() => setPage((p) => Math.max(p - 1, 0))}
+              onClick={() => turnPage('prev')}
               disabled={page === 0}
               aria-label="Previous artwork"
               className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[#3d2f1f]/70 px-3 py-2 text-xl text-[#f1e6cd] transition hover:bg-[#3d2f1f] disabled:opacity-30"
@@ -124,7 +161,7 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
               ‹
             </button>
             <button
-              onClick={() => setPage((p) => Math.min(p + 1, count - 1))}
+              onClick={() => turnPage('next')}
               disabled={page === count - 1}
               aria-label="Next artwork"
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[#3d2f1f]/70 px-3 py-2 text-xl text-[#f1e6cd] transition hover:bg-[#3d2f1f] disabled:opacity-30"

@@ -4,16 +4,16 @@ import * as THREE from 'three'
 // app works with zero external font fetches (school networks, offline demos).
 export function makeLabelTexture(text: string): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 128
+  canvas.width = 1024
+  canvas.height = 256
   const g = canvas.getContext('2d')!
-  g.font = 'bold 52px Georgia, "Times New Roman", serif'
+  g.font = 'bold 104px Georgia, "Times New Roman", serif'
   g.fillStyle = '#f0e2c4'
   g.textAlign = 'center'
   g.textBaseline = 'middle'
   g.shadowColor = 'rgba(0,0,0,0.6)'
-  g.shadowBlur = 6
-  g.fillText(text, 256, 68, 460)
+  g.shadowBlur = 12
+  g.fillText(text, 512, 136, 920)
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.anisotropy = 4

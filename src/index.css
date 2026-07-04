@@ -8,3 +8,30 @@ body,
   overflow: hidden;
   background: #171310;
 }
+
+/* yearbook page turning: a blank sheet swings around the gutter while the
+   content swaps underneath at the halfway point */
+@keyframes page-next {
+  from {
+    transform: perspective(1800px) rotateY(0deg);
+  }
+  to {
+    transform: perspective(1800px) rotateY(-160deg);
+  }
+}
+@keyframes page-prev {
+  from {
+    transform: perspective(1800px) rotateY(0deg);
+  }
+  to {
+    transform: perspective(1800px) rotateY(160deg);
+  }
+}
+.animate-page-next {
+  animation: page-next 0.5s ease-in-out forwards;
+  backface-visibility: hidden;
+}
+.animate-page-prev {
+  animation: page-prev 0.5s ease-in-out forwards;
+  backface-visibility: hidden;
+}

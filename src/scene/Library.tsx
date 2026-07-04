@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { useThree } from '@react-three/fiber'
 import { CameraControls } from '@react-three/drei'
 import type { Book } from '../lib/types'
 import { layoutBooks } from './layout'
@@ -11,21 +12,40 @@ interface Props {
   selected: Book | null
   onSelect: (book: Book | null) => void
   highlighted: ReadonlySet<number>
+  pixieBookId: number | null
   onPixieClick: () => void
 }
 
-export function Library({ books, selected, onSelect, highlighted, onPixieClick }: Props) {
+export function Library({
+  books,
+  selected,
+  onSelect,
+  highlighted,
+  pixieBookId,
+  onPixieClick,
+}: Props) {
   const controls = useRef<CameraControls>(null)
+  const size = useThree((s) => s.size)
   const shelf = useMemo(() => layoutBooks(books), [books])
 
   const homeView = useMemo(() => {
     const midY = shelf.rows.length
       ? shelf.rows.reduce((sum, r) => sum + r.y, 0) / shelf.rows.length + 0.6
       : 1.5
-    // distance scales with shelf size so every book stays in frame
-    const dist = Math.max(5.5, shelf.width * 1.05)
-    return { position: [0, midY + 0.4, dist] as const, target: [0, midY, 0] as const }
-  }, [shelf])
+    // fit both shelf width and height for the current viewport aspect,
+    // so phones dolly back far enough to frame the whole case + pixie
+    const tanHalfV = Math.tan((45 / 2) * (Math.PI / 180))
+    const aspect = size.width / size.height
+    const topY = (shelf.rows[0]?.y ?? 1.5) + 1.5
+    const halfH = topY / 2 + 0.5
+    const halfW = shelf.width / 2 + 1.8
+    const dist = Math.max(5.5, halfH / tanHalfV, halfW / (tanHalfV * aspect))
+    return {
+      position: [0, midY + 0.4, dist] as const,
+      target: [0, midY, 0] as const,
+      dist,
+    }
+  }, [shelf, size])
 
   useEffect(() => {
     const c = controls.current
@@ -42,7 +62,7 @@ export function Library({ books, selected, onSelect, highlighted, onPixieClick }
   return (
     <>
       <color attach="background" args={['#171310']} />
-      <fog attach="fog" args={['#171310', 8, 22]} />
+      <fog attach="fog" args={['#171310', homeView.dist + 2, homeView.dist + 16]} />
       <ambientLight intensity={0.55} color="#ffe3b8" />
       <directionalLight
         position={[3, 6, 5]}
@@ -56,7 +76,7 @@ export function Library({ books, selected, onSelect, highlighted, onPixieClick }
         ref={controls}
         makeDefault
         minDistance={1.2}
-        maxDistance={14}
+        maxDistance={homeView.dist + 3}
         minPolarAngle={Math.PI / 3}
         maxPolarAngle={Math.PI / 1.9}
         minAzimuthAngle={-Math.PI / 5}
@@ -64,7 +84,12 @@ export function Library({ books, selected, onSelect, highlighted, onPixieClick }
       />
       <StoneRoom shelfWidth={shelf.width} shelfRows={shelf.rows} />
       <Pixie
-        position={[-(shelf.width / 2 + 0.9), homeView.target[1] + 0.3, 0.7]}
+        home={[-(shelf.width / 2 + 0.9), homeView.target[1] + 0.3, 0.7]}
+        flyTo={(() => {
+          if (pixieBookId === null) return null
+          const p = shelf.positions.get(pixieBookId)
+          return p ? ([p[0], p[1] + 0.85, p[2] + 0.75] as [number, number, number]) : null
+        })()}
         onClick={onPixieClick}
       />
       {books.map((book) => {
