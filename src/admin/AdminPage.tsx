@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { compressImage } from '../lib/compressImage'
 import type { Artwork, Book } from '../lib/types'
 
 const inputCls =
@@ -276,9 +277,12 @@ function ArtworksPanel({ sb, book }: { sb: SupabaseClient; book: Book }) {
     try {
       let image_path: string | undefined
       if (file) {
-        const ext = file.name.split('.').pop() ?? 'png'
+        const { blob, ext, contentType } = await compressImage(file)
         image_path = `${book.id}/${crypto.randomUUID()}.${ext}`
-        const { error: upErr } = await sb.storage.from('artwork').upload(image_path, file)
+        const { error: upErr } = await sb.storage.from('artwork').upload(image_path, blob, {
+          contentType,
+          cacheControl: '31536000', // filenames are unique, so cache forever
+        })
         if (upErr) throw upErr
       }
       const fields = {

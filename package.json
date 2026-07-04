@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "mkdir -p scripts/e2e/screenshots && node scripts/e2e/flows.mjs && node scripts/e2e/mobile.mjs && node scripts/e2e/admin.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",

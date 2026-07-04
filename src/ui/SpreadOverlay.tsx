@@ -38,6 +38,15 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
   const count = artworks?.length ?? 0
   const current = artworks?.[page]
 
+  useEffect(() => {
+    // warm only the neighboring pages so flips feel instant without
+    // fetching a whole book's worth of images up front
+    if (!artworks) return
+    for (const neighbor of [artworks[page - 1], artworks[page + 1]]) {
+      if (neighbor) new Image().src = artworkImageUrl(neighbor)
+    }
+  }, [artworks, page])
+
   const turnPage = useCallback(
     (dir: 'next' | 'prev') => {
       setPage((p) => {
@@ -109,9 +118,8 @@ export function SpreadOverlay({ book, artworkId, onClose }: Props) {
           )}
         </section>
 
-        {/* center gutter shadow: vertical on desktop, horizontal when stacked */}
+        {/* center gutter shadow (desktop spread only) */}
         <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-10 -translate-x-1/2 bg-gradient-to-r from-transparent via-black/25 to-transparent sm:block" />
-        <div className="pointer-events-none absolute inset-x-0 top-1/2 h-6 -translate-y-1/2 bg-gradient-to-b from-transparent via-black/20 to-transparent sm:hidden" />
 
         {/* turning sheet, swings around the gutter (desktop spread only) */}
         {turning && (
